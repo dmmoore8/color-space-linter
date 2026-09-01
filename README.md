@@ -18,6 +18,12 @@ line and column numbers, the way a normal linter would.
   percentages across channels.
 - `hue-range` — the hue channel in `hsl()`, `hwb()`, `lch()`, and `oklch()`
   must fall in 0-360 degrees.
+- `lightness-range` — the lightness channel in `lab()`, `oklab()`, `lch()`,
+  and `oklch()` must fall in 0-100 (`lab()`/`lch()`) or 0-1 (`oklab()`/
+  `oklch()`); percentages must fall in 0%-100% either way.
+- `chroma-range` — the chroma channel in `lch()` and `oklch()` must be
+  non-negative and fall within the spec's reference range for a 100% value
+  (0-150 for `lch()`, 0-0.4 for `oklch()`).
 
 ## Strict by default, `--lenient` as the escape hatch
 
@@ -82,5 +88,4 @@ node dist/cli.js theme.css
 
 - Color functions are matched with a single-line regex, so a color value
   split across multiple lines won't be seen.
-- `lab()` and `oklab()` lightness/chroma ranges aren't checked yet.
 - `var()` or `calc()` nested inside a color function isn't understood.
