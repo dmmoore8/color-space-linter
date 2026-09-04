@@ -74,6 +74,26 @@ theme.css
 The `--muted` line has no findings; a comma-separated `rgba()` with a
 number channel and a trailing alpha value is valid on its own.
 
+## Ignoring a line
+
+Sometimes a value is intentionally out of range. Add a CSS comment to
+silence findings on that line, or the line after it:
+
+```css
+--brand: rgb(300 0 0); /* colorlint-disable-line */
+/* colorlint-disable-next-line */
+--accent: hsl(730 80% 50%);
+```
+
+Name specific rule ids, comma-separated, to silence only those:
+
+```css
+--brand: rgb(300 0 0); /* colorlint-disable-line rgb-range */
+```
+
+A bare `colorlint-disable-line`/`colorlint-disable-next-line` with no rule
+ids silences every rule on that line.
+
 ## Building and running
 
 There are no runtime dependencies. You need a TypeScript compiler on your
