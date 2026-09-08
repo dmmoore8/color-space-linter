@@ -38,6 +38,20 @@ colorlint src/**/*.css
 colorlint --lenient src/**/*.css
 ```
 
+## Machine-readable output
+
+Pass `--format json` to get a single JSON object on stdout instead of the
+text report, for feeding into another tool:
+
+```
+$ colorlint --format json theme.css
+{"lenient":false,"errorCount":3,"warningCount":0,"files":[{"filePath":"theme.css","findings":[{"line":2,"column":12,"ruleId":"hex-length","message":"hex color \"#1a2b3\" has 5 digit(s); expected 3, 4, 6, or 8","severity":"error"}, ...]}]}
+```
+
+`files` includes every file that was linted, even ones with no findings.
+Exit code behavior is unchanged: nonzero if any error-severity finding
+exists.
+
 ## Example
 
 Given `theme.css`:
