@@ -13,7 +13,7 @@ export interface LintOptions {
 }
 
 const HEX_PATTERN = /#([0-9a-fA-F]+)\b/g;
-const FUNCTION_PATTERN = /\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(([^()]*)\)/g;
+const FUNCTION_NAME_PATTERN = /\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/g;
 const VALID_HEX_LENGTHS = [3, 4, 6, 8];
 
 // lch/oklch put hue third (L C H); hsl/hsla/hwb put it first.
@@ -79,14 +79,34 @@ function checkHexColors(text: string, lineNumber: number): Finding[] {
   return findings;
 }
 
+// Finds the ")" that matches the "(" at openIndex, accounting for nested
+// parens from var()/calc() inside the function's arguments. Returns -1 if
+// the value is unbalanced (e.g. spans multiple lines), which the caller
+// treats as "can't see this one" rather than an error.
+function findMatchingParen(text: string, openIndex: number): number {
+  let depth = 1;
+  for (let i = openIndex + 1; i < text.length; i += 1) {
+    if (text[i] === '(') depth += 1;
+    else if (text[i] === ')') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
 function checkColorFunctions(text: string, lineNumber: number, options: LintOptions): Finding[] {
   const findings: Finding[] = [];
-  FUNCTION_PATTERN.lastIndex = 0;
+  FUNCTION_NAME_PATTERN.lastIndex = 0;
   let match: RegExpExecArray | null;
-  while ((match = FUNCTION_PATTERN.exec(text)) !== null) {
+  while ((match = FUNCTION_NAME_PATTERN.exec(text)) !== null) {
     const fnName = match[1].toLowerCase();
     const column = match.index + 1;
-    const channels = extractColorChannels(match[2]);
+    const openIndex = match.index + match[0].length - 1;
+    const closeIndex = findMatchingParen(text, openIndex);
+    if (closeIndex === -1) continue;
+
+    const channels = extractColorChannels(text.slice(openIndex + 1, closeIndex));
     if (channels.length === 0) continue;
 
     if (fnName === 'rgb' || fnName === 'rgba') {
@@ -224,24 +244,58 @@ function checkChromaChannel(
 
 type ChannelKind = 'number' | 'percentage' | 'other';
 
+// A channel that is (or contains) a var()/calc() expression can't be
+// classified statically, so range checks skip it rather than guessing.
 function classifyNumber(token: string): ChannelKind {
   if (/^-?\d+(\.\d+)?%$/.test(token)) return 'percentage';
   if (/^-?\d+(\.\d+)?$/.test(token)) return 'number';
   return 'other';
 }
 
+// Finds the first top-level occurrence of `target` in `input`, ignoring
+// anything inside nested parens (e.g. the "," in a var() fallback, or the
+// "/" in a calc() division).
+function topLevelIndexOf(input: string, target: string): number {
+  let depth = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i];
+    if (ch === '(') depth += 1;
+    else if (ch === ')') depth -= 1;
+    else if (depth === 0 && ch === target) return i;
+  }
+  return -1;
+}
+
+// Splits on `isSeparator` at depth 0 only, so var(--r, 10px) or
+// calc(50% - 10px) survive intact as a single channel token.
+function splitTopLevel(input: string, isSeparator: (ch: string) => boolean): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let depth = 0;
+  for (const ch of input) {
+    if (ch === '(') depth += 1;
+    else if (ch === ')') depth -= 1;
+    if (depth === 0 && isSeparator(ch)) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current);
+  return parts.map((part) => part.trim()).filter((part) => part.length > 0);
+}
+
 // Legacy comma syntax puts alpha as a trailing comma-separated value
 // (rgba(r, g, b, a)); modern space syntax uses a slash (rgb(r g b / a)).
 // Either way we strip alpha out before range-checking the color channels.
 function extractColorChannels(argsRaw: string): string[] {
-  const slashIndex = argsRaw.indexOf('/');
+  const slashIndex = topLevelIndexOf(argsRaw, '/');
   const beforeSlash = slashIndex === -1 ? argsRaw : argsRaw.slice(0, slashIndex);
-  const isCommaSeparated = beforeSlash.includes(',');
-  const separator = isCommaSeparated ? ',' : /\s+/;
-  const parts = beforeSlash
-    .split(separator)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+  const isCommaSeparated = topLevelIndexOf(beforeSlash, ',') !== -1;
+  const parts = isCommaSeparated
+    ? splitTopLevel(beforeSlash, (ch) => ch === ',')
+    : splitTopLevel(beforeSlash, (ch) => /\s/.test(ch));
 
   if (slashIndex === -1 && isCommaSeparated && parts.length === 4) {
     return parts.slice(0, 3);

@@ -118,8 +118,15 @@ tsc
 node dist/cli.js theme.css
 ```
 
+## var() and calc()
+
+A channel can be a `var()` or `calc()` expression instead of a literal, e.g.
+`rgb(var(--r) 0 0)` or `hsl(0 calc(50% + 10%) 50%)`. colorlint can't know
+what a custom property or a calc expression resolves to, so that channel is
+skipped for range and consistency checks, but the rest of the function is
+still checked normally — `rgb(var(--r), 300, 0)` still flags `300`.
+
 ## Known limitations (for now)
 
 - Color functions are matched with a single-line regex, so a color value
   split across multiple lines won't be seen.
-- `var()` or `calc()` nested inside a color function isn't understood.
