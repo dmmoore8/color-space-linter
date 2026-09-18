@@ -1,0 +1,8 @@
+:root {
+  --a: rgb(300 0 0); /* colorlint-disable-line */
+  --b: rgb(300, 50%, 0); /* colorlint-disable-line rgb-range */
+  --c: hsl(730 50% 50%);
+  /* colorlint-disable-next-line */
+  --d: rgb(300 0 0);
+  --e: rgb(300 0 0);
+}

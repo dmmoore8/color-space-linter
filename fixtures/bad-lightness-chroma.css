@@ -1,0 +1,9 @@
+:root {
+  --lab-over: lab(150% 20 30);
+  --lab-neg: lab(-10% 20 30);
+  --oklab-over: oklab(1.5 0.1 0.05);
+  --lch-chroma-neg: lch(50% -10 200);
+  --lch-chroma-over: lch(50% 200 200);
+  --oklch-chroma-over: oklch(0.5 0.5 200);
+  --ok: lab(50% 20 30);
+}

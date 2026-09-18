@@ -118,6 +118,18 @@ tsc
 node dist/cli.js theme.css
 ```
 
+## Tests
+
+`fixtures/` holds known-bad (and one known-good) CSS files, one per rule
+plus one exercising disable comments and one exercising `var()`/`calc()`
+channels. `src/linter.test.ts` runs `lintSource` against each fixture and
+checks the exact set of findings it produces, using node's built-in test
+runner (no third-party test framework):
+
+```
+npm test
+```
+
 ## var() and calc()
 
 A channel can be a `var()` or `calc()` expression instead of a literal, e.g.

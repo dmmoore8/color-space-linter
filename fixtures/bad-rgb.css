@@ -1,0 +1,7 @@
+:root {
+  --mixed: rgb(255, 50%, 0);
+  --over: rgb(300 0 0);
+  --neg: rgb(-10 0 0);
+  --pct-over: rgb(0% 0% 120%);
+  --ok: rgb(10 20 30);
+}
