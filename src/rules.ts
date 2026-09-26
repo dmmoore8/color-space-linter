@@ -1,15 +1,27 @@
 export type Severity = 'error' | 'warning';
 
+export const RULE_IDS = [
+  'hex-length',
+  'rgb-range',
+  'channel-mix',
+  'hue-range',
+  'lightness-range',
+  'chroma-range',
+] as const;
+
+export type RuleId = (typeof RULE_IDS)[number];
+
 export interface Finding {
   line: number;
   column: number;
-  ruleId: string;
+  ruleId: RuleId;
   message: string;
   severity: Severity;
 }
 
 export interface LintOptions {
   lenient: boolean;
+  disabledRules?: ReadonlySet<RuleId>;
 }
 
 const HEX_PATTERN = /#([0-9a-fA-F]+)\b/g;
@@ -57,7 +69,10 @@ function severityFor(downgradable: boolean, lenient: boolean): Severity {
 }
 
 export function lintLine(text: string, lineNumber: number, options: LintOptions): Finding[] {
-  return [...checkHexColors(text, lineNumber), ...checkColorFunctions(text, lineNumber, options)];
+  const findings = [...checkHexColors(text, lineNumber), ...checkColorFunctions(text, lineNumber, options)];
+  const disabledRules = options.disabledRules;
+  if (!disabledRules || disabledRules.size === 0) return findings;
+  return findings.filter((finding) => !disabledRules.has(finding.ruleId));
 }
 
 function checkHexColors(text: string, lineNumber: number): Finding[] {

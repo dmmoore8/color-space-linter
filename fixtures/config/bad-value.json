@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "hex-length": "off"
+  }
+}

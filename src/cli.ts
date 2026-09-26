@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { loadConfig } from './config.js';
 import { lintSource, type FileResult, type Finding } from './linter.js';
 
 type Format = 'text' | 'json';
@@ -8,12 +9,14 @@ interface ParsedArgs {
   files: string[];
   lenient: boolean;
   format: Format;
+  configPath?: string;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
   const files: string[] = [];
   let lenient = false;
   let format: Format = 'text';
+  let configPath: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--lenient') {
@@ -25,13 +28,20 @@ function parseArgs(argv: string[]): ParsedArgs {
       }
       format = value;
       i += 1;
+    } else if (arg === '--config') {
+      const value = argv[i + 1];
+      if (value === undefined) {
+        throw new Error('--config expects a path');
+      }
+      configPath = value;
+      i += 1;
     } else if (arg.startsWith('--')) {
       throw new Error(`unknown flag: ${arg}`);
     } else {
       files.push(arg);
     }
   }
-  return { files, lenient, format };
+  return { files, lenient, format, configPath };
 }
 
 function formatFinding(finding: Finding): string {
@@ -51,7 +61,16 @@ function main(): void {
   }
 
   if (parsed.files.length === 0) {
-    console.error('usage: colorlint [--lenient] [--format text|json] <file...>');
+    console.error('usage: colorlint [--lenient] [--format text|json] [--config <path>] <file...>');
+    process.exitCode = 2;
+    return;
+  }
+
+  let disabledRules;
+  try {
+    disabledRules = loadConfig(parsed.configPath, process.cwd()).disabledRules;
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
     process.exitCode = 2;
     return;
   }
@@ -66,7 +85,7 @@ function main(): void {
       process.exitCode = 2;
       continue;
     }
-    results.push(lintSource(filePath, source, { lenient: parsed.lenient }));
+    results.push(lintSource(filePath, source, { lenient: parsed.lenient, disabledRules }));
   }
 
   let errorCount = 0;

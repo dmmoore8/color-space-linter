@@ -108,6 +108,29 @@ Name specific rule ids, comma-separated, to silence only those:
 A bare `colorlint-disable-line`/`colorlint-disable-next-line` with no rule
 ids silences every rule on that line.
 
+## Disabling rules with a config file
+
+To turn a rule off project-wide instead of adding disable comments
+everywhere, add a `.colorlintrc.json` in the directory you run colorlint
+from:
+
+```json
+{
+  "rules": {
+    "chroma-range": false
+  }
+}
+```
+
+Any rule id from the list above can be set to `false`. Unknown rule ids or
+non-boolean values are a config error, not a silent no-op. Pass `--config
+<path>` to use a config file at a different location instead of the
+default lookup:
+
+```
+colorlint --config ./config/colorlint.json src/**/*.css
+```
+
 ## Building and running
 
 There are no runtime dependencies. You need a TypeScript compiler on your
