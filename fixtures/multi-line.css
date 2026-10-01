@@ -1,0 +1,24 @@
+:root {
+  --a: rgb(
+    300
+    0
+    0
+  );
+  --b: hsl(
+    0,
+    50%,
+    50%
+  );
+  --c: oklch(0.5
+    0.1
+    400);
+  --d: rgb(255 0 0 /
+    0.5);
+  --e: #12345;
+  /* colorlint-disable-next-line rgb-range */
+  --f: rgb(
+    999 0 0
+  );
+  --g: rgb(10 10 10;
+  --h: rgb(300 0 0);
+}

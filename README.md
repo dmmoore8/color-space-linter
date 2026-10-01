@@ -161,7 +161,9 @@ what a custom property or a calc expression resolves to, so that channel is
 skipped for range and consistency checks, but the rest of the function is
 still checked normally — `rgb(var(--r), 300, 0)` still flags `300`.
 
-## Known limitations (for now)
+## Multi-line values
 
-- Color functions are matched with a single-line regex, so a color value
-  split across multiple lines won't be seen.
+A color function can be split across lines; it is checked like any other and
+reported at the line and column of its function name. Disable comments
+therefore need to cover that first line. A function that is never closed
+before the next `;`, `{`, or `}` is skipped rather than guessed at.

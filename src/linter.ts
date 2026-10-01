@@ -1,4 +1,4 @@
-import { lintLine, type Finding, type LintOptions } from './rules.js';
+import { lintText, type Finding, type LintOptions } from './rules.js';
 
 export interface FileResult {
   filePath: string;
@@ -38,18 +38,18 @@ function isDisabled(ruleId: string, disabled: Disabled): boolean {
 
 export function lintSource(filePath: string, source: string, options: LintOptions): FileResult {
   const lines = source.split(/\r\n|\r|\n/);
-  const findings: Finding[] = [];
   let pendingNextLineDisable: Disabled = null;
-  lines.forEach((line, index) => {
+  const disabledByLine: Disabled[] = lines.map((line) => {
     const disabled = mergeDisabled(parseDisabledRules(line.match(DISABLE_LINE_PATTERN)), pendingNextLineDisable);
     pendingNextLineDisable = parseDisabledRules(line.match(DISABLE_NEXT_LINE_PATTERN));
-
-    for (const finding of lintLine(line, index + 1, options)) {
-      if (!isDisabled(finding.ruleId, disabled)) {
-        findings.push(finding);
-      }
-    }
+    return disabled;
   });
+
+  // A multi-line value is attributed to the line it starts on, so that is
+  // the line a disable comment has to cover.
+  const findings = lintText(source, options).filter(
+    (finding) => !isDisabled(finding.ruleId, disabledByLine[finding.line - 1]),
+  );
   findings.sort((a, b) => a.line - b.line || a.column - b.column);
   return { filePath, findings };
 }

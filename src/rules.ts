@@ -68,23 +68,52 @@ function severityFor(downgradable: boolean, lenient: boolean): Severity {
   return lenient && downgradable ? 'warning' : 'error';
 }
 
-export function lintLine(text: string, lineNumber: number, options: LintOptions): Finding[] {
-  const findings = [...checkHexColors(text, lineNumber), ...checkColorFunctions(text, lineNumber, options)];
+type Locate = (offset: number) => { line: number; column: number };
+
+// Maps a character offset in the whole source to a 1-based line and column.
+// Line breaks are split the same way lintSource splits lines, so the two
+// always agree on numbering.
+function buildLocator(text: string): Locate {
+  const lineStarts = [0];
+  const breakPattern = /\r\n|\r|\n/g;
+  let breakMatch: RegExpExecArray | null;
+  while ((breakMatch = breakPattern.exec(text)) !== null) {
+    lineStarts.push(breakMatch.index + breakMatch[0].length);
+  }
+  return (offset) => {
+    let low = 0;
+    let high = lineStarts.length - 1;
+    while (low < high) {
+      const mid = (low + high + 1) >> 1;
+      if (lineStarts[mid] <= offset) low = mid;
+      else high = mid - 1;
+    }
+    return { line: low + 1, column: offset - lineStarts[low] + 1 };
+  };
+}
+
+// Lints the whole source at once so a color function split across several
+// lines is seen. A finding is reported at the line and column where its
+// value starts.
+export function lintText(text: string, options: LintOptions): Finding[] {
+  const locate = buildLocator(text);
+  const findings = [...checkHexColors(text, locate), ...checkColorFunctions(text, locate, options)];
   const disabledRules = options.disabledRules;
   if (!disabledRules || disabledRules.size === 0) return findings;
   return findings.filter((finding) => !disabledRules.has(finding.ruleId));
 }
 
-function checkHexColors(text: string, lineNumber: number): Finding[] {
+function checkHexColors(text: string, locate: Locate): Finding[] {
   const findings: Finding[] = [];
   HEX_PATTERN.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = HEX_PATTERN.exec(text)) !== null) {
     const digits = match[1];
     if (!VALID_HEX_LENGTHS.includes(digits.length)) {
+      const { line, column } = locate(match.index);
       findings.push({
-        line: lineNumber,
-        column: match.index + 1,
+        line,
+        column,
         ruleId: 'hex-length',
         message: `hex color "#${digits}" has ${digits.length} digit(s); expected 3, 4, 6, or 8`,
         severity: 'error',
@@ -96,13 +125,17 @@ function checkHexColors(text: string, lineNumber: number): Finding[] {
 
 // Finds the ")" that matches the "(" at openIndex, accounting for nested
 // parens from var()/calc() inside the function's arguments. Returns -1 if
-// the value is unbalanced (e.g. spans multiple lines), which the caller
-// treats as "can't see this one" rather than an error.
+// the value is unbalanced, which the caller treats as "can't see this one"
+// rather than an error. The text may span many lines, so a declaration or
+// block boundary ends the search: otherwise an unclosed "rgb(" would pair
+// up with a ")" from some later, unrelated rule.
 function findMatchingParen(text: string, openIndex: number): number {
   let depth = 1;
   for (let i = openIndex + 1; i < text.length; i += 1) {
-    if (text[i] === '(') depth += 1;
-    else if (text[i] === ')') {
+    const ch = text[i];
+    if (ch === ';' || ch === '{' || ch === '}') return -1;
+    if (ch === '(') depth += 1;
+    else if (ch === ')') {
       depth -= 1;
       if (depth === 0) return i;
     }
@@ -110,13 +143,13 @@ function findMatchingParen(text: string, openIndex: number): number {
   return -1;
 }
 
-function checkColorFunctions(text: string, lineNumber: number, options: LintOptions): Finding[] {
+function checkColorFunctions(text: string, locate: Locate, options: LintOptions): Finding[] {
   const findings: Finding[] = [];
   FUNCTION_NAME_PATTERN.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = FUNCTION_NAME_PATTERN.exec(text)) !== null) {
     const fnName = match[1].toLowerCase();
-    const column = match.index + 1;
+    const { line: lineNumber, column } = locate(match.index);
     const openIndex = match.index + match[0].length - 1;
     const closeIndex = findMatchingParen(text, openIndex);
     if (closeIndex === -1) continue;

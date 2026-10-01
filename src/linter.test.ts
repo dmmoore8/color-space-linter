@@ -73,6 +73,15 @@ test('var() and calc() channels are skipped but the rest of the function is stil
   assert.deepEqual(findingsOf('var-calc.css'), [{ line: 3, ruleId: 'rgb-range' }]);
 });
 
+test('color functions split across lines are checked and reported at the line they start on', () => {
+  assert.deepEqual(findingsOf('multi-line.css'), [
+    { line: 2, ruleId: 'rgb-range' },
+    { line: 12, ruleId: 'hue-range' },
+    { line: 17, ruleId: 'hex-length' },
+    { line: 23, ruleId: 'rgb-range' },
+  ]);
+});
+
 test('valid color values across every supported function produce no findings', () => {
   assert.deepEqual(findingsOf('clean.css'), []);
 });
